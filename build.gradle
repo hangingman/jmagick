@@ -1,16 +1,19 @@
 plugins {
     id 'cpp-library'
-    id 'java-library'
     id 'java'
 }
 
 library {
-    binaries {
-        sharedLibrary {
-            baseName = 'nativeLib'
-            cppCompiler.args '-I${System.env.JAVA_HOME}/include', '-I${System.env.JAVA_HOME}/include/linux'
-        }
-    }
+    targetMachines = [
+            machines.linux.x86_64,
+            machines.windows.x86, machines.windows.x86_64,
+            machines.macOS.x86_64
+    ]
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
 }
 
 repositories {
@@ -22,8 +25,85 @@ dependencies {
     testImplementation 'junit:junit:4.12'
 }
 
-task generateJNIHeaders(type: Exec) {
-    commandLine 'javac', '-h', 'src/main/cpp', 'src/main/java/com/example/YourClass.java'
+tasks.register('compileJavaSources', JavaCompile) {
+    description = 'Compile Java source files.'
+    source = fileTree('src/main/java')
+    classpath = sourceSets.main.compileClasspath
+    destinationDir = file('build/classes/java/main')
 }
 
-compileJava.dependsOn generateJNIHeaders
+tasks.named('jar') {
+    dependsOn 'compileJavaSources'
+}
+
+// task for generating JNI header files
+task generateJNIHeaders(type: Exec) {
+    description = 'Generate JNI headers from compiled Java classes.'
+    group = 'build'
+
+    dependsOn 'compileJavaSources'
+    dependsOn 'compileJava'
+
+    inputs.dir layout.buildDirectory.dir("classes/java/main")
+    outputs.dir file("$projectDir/src/main/cpp")
+
+    def javaSrcDirs = [
+            file('src/main/java/magick'),
+            file('src/main/java/magick/util')
+    ]
+
+    def classpathDir = layout.buildDirectory.dir("classes/java/main").get().asFile
+
+    doFirst {
+        def javaClasses = []
+        javaSrcDirs.each { dir ->
+            fileTree(dir).include('**/*.java').each { file ->
+                def relativePath = project.relativePath(file).replace(File.separator, '.')
+                def className = relativePath.replaceAll(/\.java$/, '')  // remove '.java'
+                javaClasses << className
+            }
+        }
+
+        if (javaClasses.isEmpty()) {
+            throw new GradleException("No Java source files found.")
+        }
+
+        if (JavaVersion.current().isJava9Compatible()) {
+            commandLine = ['javac', '-h', "${buildDir}/generated/sources/headers/"] + javaClasses.collect { it.replace('.', File.separator) + ".java" }
+        } else {
+            commandLine = ['javah', '-d', "${buildDir}/generated/sources/headers/", '-classpath', classpathDir] + javaClasses
+        }
+    }
+}
+
+// task for C++
+tasks.withType(CppCompile).configureEach {
+    dependsOn ':generateJNIHeaders'
+
+    source.from fileTree('src/main/cpp') {
+        include('**/*.c')
+    }
+
+    def jdkHome = System.getenv('JAVA_HOME')
+    if (jdkHome == null) {
+        throw new GradleException("JAVA_HOME environment variable is not set.")
+    }
+
+    def jdkIncludeDir = file("$jdkHome/include")
+    def jdkIncludeOSDir = file("$jdkIncludeDir/${System.getProperty('os.name').toLowerCase().contains('win') ? 'win32' : 'linux'}")
+
+    compilerArgs.add('-I' + jdkIncludeDir)
+    compilerArgs.add('-I' + jdkIncludeOSDir)
+    compilerArgs.add('-I' + file("${buildDir}/generated/sources/headers/"))
+    compilerArgs.add('-fPIC')
+}
+
+tasks.withType(LinkSharedLibrary).configureEach {
+    dependsOn tasks.withType(CppCompile)
+    linkerArgs.add('-shared')
+}
+
+tasks.register('buildAll') {
+    description = 'Build Java, generate JNI headers, and compile C++ code.'
+    dependsOn 'generateJNIHeaders', tasks.withType(CppCompile), tasks.withType(LinkSharedLibrary)
+}
