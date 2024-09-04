@@ -13,18 +13,18 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        jdk: ['8', '11']
-        os: ['ubuntu', 'bullseye']
+        jdk: ['8', '17']
+        os: ['ubuntu', 'bookworm']
         exclude:
           - jdk: '8'
-            os: 'bullseye'
+            os: 'bookworm'
 
     container:
-      image: dpokidov/imagemagick:7.1.1-10-${{ matrix.os }}
+      image: dpokidov/imagemagick:7.1.1-31-2-${{ matrix.os }}
       options: --user root
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Package update
         run: apt-get update -y && apt-get install -y sudo curl wget apt-utils
@@ -44,3 +44,6 @@ jobs:
 
       - name: Make
         run: make
+
+      - name: Test
+        run: make test
