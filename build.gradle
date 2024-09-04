@@ -1,0 +1,29 @@
+plugins {
+    id 'cpp-library'
+    id 'java-library'
+    id 'java'
+}
+
+library {
+    binaries {
+        sharedLibrary {
+            baseName = 'nativeLib'
+            cppCompiler.args '-I${System.env.JAVA_HOME}/include', '-I${System.env.JAVA_HOME}/include/linux'
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Use JUnit test framework
+    testImplementation 'junit:junit:4.12'
+}
+
+task generateJNIHeaders(type: Exec) {
+    commandLine 'javac', '-h', 'src/main/cpp', 'src/main/java/com/example/YourClass.java'
+}
+
+compileJava.dependsOn generateJNIHeaders
