@@ -25,6 +25,9 @@ dependencies {
     testImplementation 'junit:junit:4.12'
 }
 
+group = 'magick'
+version = '7.0.4'
+
 tasks.register('compileJavaSources', JavaCompile) {
     description = 'Compile Java source files.'
     source = fileTree('src/main/java')
@@ -84,11 +87,7 @@ tasks.withType(CppCompile).configureEach {
         include('**/*.c')
     }
 
-    def jdkHome = System.getenv('JAVA_HOME')
-    if (jdkHome == null) {
-        throw new GradleException("JAVA_HOME environment variable is not set.")
-    }
-
+    def jdkHome = System.getenv('JAVA_HOME') ?: "${org.gradle.internal.jvm.Jvm.current().javaHome}"
     def jdkIncludeDir = file("$jdkHome/include")
     def jdkIncludeOSDir = file("$jdkIncludeDir/${System.getProperty('os.name').toLowerCase().contains('win') ? 'win32' : 'linux'}")
 
