@@ -1,6 +1,7 @@
 plugins {
     id 'cpp-library'
     id 'java'
+    id 'groovy'
 }
 
 library {
@@ -21,7 +22,7 @@ repositories {
 }
 
 dependencies {
-    // Use JUnit test framework
+    implementation localGroovy()
     testImplementation 'junit:junit:4.12'
 }
 
@@ -101,6 +102,10 @@ tasks.withType(LinkSharedLibrary).configureEach {
     dependsOn tasks.withType(CppCompile)
     linkerArgs.add('-shared')
 }
+
+def magickVersion = project.magickVersion
+println "Using ImageMagick version: ${magickVersion}"
+def versionInfo = ImageMagickVersion.parseVersion(magickVersion)
 
 tasks.register('buildAll') {
     description = 'Build Java, generate JNI headers, and compile C++ code.'

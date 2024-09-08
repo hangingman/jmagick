@@ -1,16 +1,12 @@
-FROM dpokidov/imagemagick:7.1.1-10-ubuntu
+FROM dpokidov/imagemagick:7.1.1-31-2-ubuntu
 
 RUN apt-get update -y
-RUN apt-get install -y autoconf automake libtool build-essential pkg-config openjdk-11-jdk
+RUN apt-get install -y sudo curl wget apt-utils build-essential pkg-config openjdk-17-jdk
 
 COPY . .
 
-RUN touch NEWS AUTHORS ChangeLog
-RUN autoreconf --force --install
-RUN automake --add-missing
-
-RUN ./configure --with-java-home=/usr/lib/jvm/java-11-openjdk-amd64
-RUN make
+RUN ./gradlew build
+RUN ./gradlew test
 
 # override "dpokidov/imagemagick" default entrypoint
 ENTRYPOINT [""]
